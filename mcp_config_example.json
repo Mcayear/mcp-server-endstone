@@ -76,6 +76,13 @@
         }
       },
       {
+        "name": "get_symbol_info",
+        "example": "Get detailed definition of PlayerInteractEvent",
+        "parameters": {
+          "symbol_name": "PlayerInteractEvent"
+        }
+      },
+      {
         "name": "generate_plugin_template",
         "example": "Create a plugin with events and commands",
         "parameters": {

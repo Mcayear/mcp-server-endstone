@@ -71,8 +71,19 @@ python endstone_mcp_server.py
 参数: {"query": "Player"}
 ```
 
-### 3. generate_plugin_template
-生成基础插件模板
+### 3. get_symbol_info
+获取 Endstone 中特定符号（如类、事件）的详细定义，包括其文档、属性和方法。
+
+**参数:**
+- `symbol_name`: 符号名称 (例如: 'PlayerInteractEvent', 'Plugin')
+
+**示例:**
+```
+工具: get_symbol_info
+参数: {"symbol_name": "PlayerInteractEvent"}
+```
+
+### 4. generate_plugin_template
 
 **参数:**
 - `plugin_name`: 插件名称
@@ -87,8 +98,8 @@ python endstone_mcp_server.py
 }
 ```
 
-### 4. get_event_info
-获取事件相关信息
+### 5. get_event_info
+获取事件相关信息。如果提供了 `event_type`，则返回该事件的详细定义（属性、文档）和用法示例。否则，列出所有可用事件。
 
 **参数:**
 - `event_type`: 特定事件类型 (可选)

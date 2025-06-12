@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 import sys
+import ast
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -40,12 +41,77 @@ logger = logging.getLogger("endstone-mcp")
 
 # Endstone reference path
 ENDSTONE_REF_PATH = Path(__file__).parent / "./reference/endstone"
+ENDSTONE_PYI_PATH = Path(__file__).parent / "reference/endstone/_internal/endstone_python.pyi"
 
 class EndstoneMCPServer:
     def __init__(self):
         self.server = Server("endstone-mcp")
         self.endstone_modules = self._load_endstone_modules()
+        self.pyi_definitions = self._load_pyi_definitions(ENDSTONE_PYI_PATH)
         self._setup_handlers()
+    
+    def _load_pyi_definitions(self, file_path: Path) -> Dict[str, Any]:
+        """Parse a .pyi file and extract class information using AST."""
+        if not file_path.exists():
+            logger.warning(f"PYI file not found at {file_path}")
+            return {}
+
+        content = file_path.read_text(encoding='utf-8')
+        try:
+            tree = ast.parse(content)
+        except SyntaxError as e:
+            logger.error(f"Failed to parse PYI file {file_path}: {e}")
+            return {}
+
+        classes = {}
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                class_name = node.name
+                class_doc = ast.get_docstring(node)
+
+                properties = []
+                methods = []
+
+                for body_item in node.body:
+                    if isinstance(body_item, ast.FunctionDef):
+                        is_property = any(
+                            isinstance(d, ast.Name) and d.id == 'property'
+                            for d in body_item.decorator_list
+                        )
+
+                        func_name = body_item.name
+                        func_doc = ast.get_docstring(body_item)
+
+                        return_type = None
+                        if body_item.returns:
+                            try:
+                                return_type = ast.unparse(body_item.returns)
+                            except AttributeError:
+                                if isinstance(body_item.returns, ast.Name):
+                                    return_type = body_item.returns.id
+                                elif isinstance(body_item.returns, ast.Constant):
+                                    return_type = str(body_item.returns.value)
+                                else:
+                                    return_type = "ComplexType"
+
+                        item_info = {
+                            "name": func_name,
+                            "doc": func_doc,
+                            "return_type": return_type,
+                        }
+
+                        if is_property:
+                            properties.append(item_info)
+                        else:
+                            methods.append(item_info)
+
+                classes[class_name] = {
+                    "doc": class_doc,
+                    "properties": properties,
+                    "methods": methods,
+                }
+        return classes
     
     def _load_endstone_modules(self) -> Dict[str, Any]:
         """Load information about Endstone modules and their exports."""
@@ -164,6 +230,20 @@ class EndstoneMCPServer:
                     }
                 ),
                 Tool(
+                    name="get_symbol_info",
+                    description="Get detailed information about a specific class, function, or constant in Endstone",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "symbol_name": {
+                                "type": "string",
+                                "description": "Name of the class, function, etc. (e.g., 'PlayerInteractEvent', 'Plugin')"
+                            }
+                        },
+                        "required": ["symbol_name"]
+                    }
+                ),
+                Tool(
                     name="generate_plugin_template",
                     description="Generate a basic Endstone plugin template with specified features",
                     inputSchema={
@@ -206,6 +286,9 @@ class EndstoneMCPServer:
                     return result.content
                 elif name == "search_exports":
                     result = await self._search_exports(arguments.get("query"))
+                    return result.content
+                elif name == "get_symbol_info":
+                    result = await self._get_symbol_info(arguments.get("symbol_name"))
                     return result.content
                 elif name == "generate_plugin_template":
                     result = await self._generate_plugin_template(
@@ -336,6 +419,69 @@ class EndstoneMCPServer:
             content=[TextContent(type="text", text=template)]
         )
     
+    async def _get_symbol_info(self, symbol_name: str) -> CallToolResult:
+        """Get information about a specific symbol."""
+        if not symbol_name:
+            return CallToolResult(
+                content=[TextContent(type="text", text="Symbol name is required")]
+            )
+        
+        result_text = self._format_symbol_info(symbol_name)
+        
+        return CallToolResult(content=[TextContent(type="text", text=result_text)])
+
+    def _format_symbol_info(self, symbol_name: str) -> str:
+        """Formats the detailed information for a symbol into a markdown string."""
+        # Find which module it belongs to
+        module_name = None
+        for mod, info in self.endstone_modules.items():
+            if symbol_name in info["exports"]:
+                module_name = mod
+                break
+
+        result = f"# {symbol_name}\n\n"
+        if module_name:
+            result += f"Found in module: `{module_name}`\n\n"
+        
+        if symbol_name in self.pyi_definitions:
+            class_info = self.pyi_definitions[symbol_name]
+            if class_info.get('doc'):
+                result += f"{class_info['doc']}\n\n"
+            
+            if class_info.get('properties'):
+                result += "## Properties\n"
+                for prop in class_info['properties']:
+                    prop_name = prop['name']
+                    prop_type = prop['return_type']
+                    prop_doc = prop.get('doc') or 'No description available.'
+                    
+                    result += f"- **`{prop_name}`**"
+                    if prop_type:
+                        result += f" -> `{prop_type}`"
+                    result += f"\n  - {prop_doc}\n"
+                result += "\n"
+            
+            if class_info.get('methods'):
+                result += "## Methods\n"
+                for method in class_info['methods']:
+                    method_name = method['name']
+                    method_type = method['return_type']
+                    method_doc = method.get('doc') or 'No description available.'
+                    
+                    result += f"- **`{method_name}()`**"
+                    if method_type:
+                        result += f" -> `{method_type}`"
+                    result += f"\n  - {method_doc}\n"
+                result += "\n"
+
+        else:
+            if module_name:
+                result += "No detailed definition found for this symbol."
+            else:
+                result = f"Symbol '{symbol_name}' not found in any loaded Endstone module's exports."
+
+        return result
+
     async def _get_event_info(self, event_type: Optional[str]) -> CallToolResult:
         """Get information about events."""
         if "endstone.event" in self.endstone_modules:
@@ -343,7 +489,7 @@ class EndstoneMCPServer:
             
             if event_type:
                 if event_type in events:
-                    result = f"# {event_type}\n\nThis event is available in endstone.event module.\n\n"
+                    result = self._format_symbol_info(event_type)
                     result += "## Usage Example:\n\n"
                     result += f"```python\nfrom endstone.event import {event_type}, event_handler\n\n"
                     result += "@event_handler\n"

@@ -24,6 +24,8 @@ async def test_server_functionality():
     
     print(f"\n✓ 服务器初始化成功")
     print(f"✓ 已加载 {len(server.endstone_modules)} 个 Endstone 模块")
+    if hasattr(server, 'pyi_definitions'):
+        print(f"✓ 已从 PYI 文件加载 {len(server.pyi_definitions)} 个类定义")
     
     # Test 1: Module loading
     print("\n--- 测试 1: 模块加载 ---")
@@ -59,12 +61,14 @@ async def test_server_functionality():
         print(f"  包含 'on_enable': {'on_enable' in content}")
         print(f"  包含 'event_handler': {'event_handler' in content}")
     
-    # Test 5: Get event info
-    print("\n--- 测试 5: 获取事件信息 ---")
-    result = await server._get_event_info("PlayerJoinEvent")
+    # Test 5: Get event info for a specific event
+    print("\n--- 测试 5: 获取特定事件信息 ---")
+    result = await server._get_event_info("PlayerInteractEvent")
     if result.content:
         content = result.content[0].text
         print(f"  事件信息长度: {len(content)} 个字符")
+        print(f"  包含属性 'block': {'block' in content}")
+        print(f"  包含属性 'item': {'item' in content}")
         print(f"  包含使用示例: {'```python' in content}")
     
     # Test 6: List all events
@@ -75,6 +79,16 @@ async def test_server_functionality():
         event_count = content.count('Event`')
         print(f"  找到 {event_count} 个事件")
     
+    # Test 7: Get symbol info
+    print("\n--- 测试 7: 获取符号信息 ---")
+    result = await server._get_symbol_info("PlayerInteractEvent")
+    if result.content:
+        content = result.content[0].text
+        print(f"  符号信息长度: {len(content)} 个字符")
+        print(f"  包含文档字符串: {'Represents an event that is called when a player' in content}")
+        print(f"  包含属性 'block': {'- **`block`**' in content}")
+        print(f"  包含属性 'item': {'- **`item`**' in content}")
+
     print("\n=== 所有测试成功完成！ ===")
     
     # Show some statistics
@@ -82,12 +96,28 @@ async def test_server_functionality():
     total_exports = sum(len(info['exports']) for info in server.endstone_modules.values())
     print(f"  总模块数: {len(server.endstone_modules)}")
     print(f"  总导出项数: {total_exports}")
+    if hasattr(server, 'pyi_definitions'):
+        print(f"  总 PYI 定义数: {len(server.pyi_definitions)}")
     
     # Show available modules
     print("\n--- 可用模块 ---")
     for module_name in sorted(server.endstone_modules.keys()):
         print(f"  - {module_name}")
     
+    # Test invalid symbol name
+    print("\n--- 测试: 无效符号名 ---")
+    result = await server._get_symbol_info("InvalidSymbol")
+    if result.content:
+        content = result.content[0].text
+        print(f"  错误处理正确: {'not found' in content.lower()}")
+
+    # Test empty plugin name
+    print("\n--- 测试: 空插件名 ---")
+    result = await server._generate_plugin_template("", [])
+    if result.content:
+        content = result.content[0].text
+        print(f"  错误处理正确: {'required' in content.lower()}")
+
     return True
 
 async def test_error_handling():
