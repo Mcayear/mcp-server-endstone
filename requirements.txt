@@ -1,0 +1,8 @@
+# MCP Server dependencies
+mcp>=1.0.0
+
+# Optional: for better async support
+aiofiles>=23.0.0
+
+# For TOML configuration parsing
+tomlkit>=0.12.0

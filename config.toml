@@ -1,0 +1,33 @@
+[server]
+# MCP Server configuration
+name = "endstone-mcp"
+version = "1.0.0"
+description = "Endstone MCP Server for development assistance"
+
+[paths]
+# Path to Endstone reference files
+endstone_reference = "C:/Users/Administrator/Desktop/endstone mcp/reference/endstone"
+
+[logging]
+# Logging configuration
+level = "INFO"
+format = "[%(asctime)s] %(levelname)s: %(message)s"
+
+[features]
+# Enable/disable specific features
+enable_module_info = true
+enable_search = true
+enable_templates = true
+enable_event_info = true
+enable_guides = true
+
+[templates]
+# Default template settings
+default_api_version = "0.5"
+include_examples = true
+include_documentation = true
+
+[search]
+# Search configuration
+case_sensitive = false
+max_results = 50
