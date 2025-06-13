@@ -444,42 +444,43 @@ class EndstoneMCPServer:
         if module_name:
             result += f"Found in module: `{module_name}`\n\n"
         
-        if symbol_name in self.pyi_definitions:
-            class_info = self.pyi_definitions[symbol_name]
-            if class_info.get('doc'):
-                result += f"{class_info['doc']}\n\n"
-            
-            if class_info.get('properties'):
-                result += "## Properties\n"
-                for prop in class_info['properties']:
-                    prop_name = prop['name']
-                    prop_type = prop['return_type']
-                    prop_doc = prop.get('doc') or 'No description available.'
-                    
-                    result += f"- **`{prop_name}`**"
-                    if prop_type:
-                        result += f" -> `{prop_type}`"
-                    result += f"\n  - {prop_doc}\n"
-                result += "\n"
-            
-            if class_info.get('methods'):
-                result += "## Methods\n"
-                for method in class_info['methods']:
-                    method_name = method['name']
-                    method_type = method['return_type']
-                    method_doc = method.get('doc') or 'No description available.'
-                    
-                    result += f"- **`{method_name}()`**"
-                    if method_type:
-                        result += f" -> `{method_type}`"
-                    result += f"\n  - {method_doc}\n"
-                result += "\n"
+        if symbol_name not in self.pyi_definitions:
+            result += "No detailed definition found for this symbol." if module_name else f"Symbol '{symbol_name}' not found in any loaded Endstone module's exports."
+            return result
 
-        else:
-            if module_name:
-                result += "No detailed definition found for this symbol."
-            else:
-                result = f"Symbol '{symbol_name}' not found in any loaded Endstone module's exports."
+        class_info = self.pyi_definitions[symbol_name]
+        if class_info.get('doc'):
+            result += f"{class_info['doc']}\n\n"
+        
+        if class_info.get('properties'):
+            result += "## Properties\n"
+            for prop in class_info['properties']:
+                prop_name = prop['name']
+                prop_type = prop['return_type']
+                prop_doc = prop.get('doc') or 'No description available.'
+                
+                result += f"- **`{prop_name}`**"
+                if prop_type:
+                    result += f" -> `{prop_type}`"
+                result += f"\n  - {prop_doc}\n"
+            result += "\n"
+        
+        if class_info.get('methods'):
+            result += "## Methods\n"
+            for method in class_info['methods']:
+                method_name = method['name']
+                # Skip if method name matches any property name
+                if any(prop['name'] == method_name for prop in class_info.get('properties', [])):
+                    continue
+                    
+                method_type = method['return_type']
+                method_doc = method.get('doc') or 'No description available.'
+                
+                result += f"- **`{method_name}()`**"
+                if method_type:
+                    result += f" -> `{method_type}`"
+                result += f"\n  - {method_doc}\n"
+            result += "\n"
 
         return result
 
