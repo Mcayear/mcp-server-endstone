@@ -11,6 +11,7 @@ import json
 import logging
 import sys
 import ast
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -251,7 +252,7 @@ class EndstoneMCPServer:
                         "properties": {
                             "plugin_name": {
                                 "type": "string",
-                                "description": "Name of the plugin"
+                                "description": "Name of the plugin, which must end with '_plugin' (e.g., 'example_plugin', 'economy_plugin') "
                             },
                             "features": {
                                 "type": "array",
@@ -514,56 +515,156 @@ class EndstoneMCPServer:
     
     def _create_plugin_template(self, plugin_name: str, features: List[str]) -> str:
         """Create a plugin template based on requested features."""
-        template = f'''from endstone.plugin import Plugin
-from endstone import Logger
+        # 1. Validate the plugin name. The convention is snake_case ending with _plugin.
+        if not plugin_name or not plugin_name.endswith("_plugin"):
+            return "Invalid input. 'plugin_name' must be in snake_case and end with '_plugin' (e.g., 'my_awesome_plugin')."
 
-class {plugin_name}Plugin(Plugin):
-    
-    def __init__(self):
-        super().__init__()
-        self.logger: Logger = self.get_logger()
+        # Ensure the name part is not empty
+        if plugin_name == "_plugin":
+            return "Invalid input. 'plugin_name' cannot be empty."
+
+        snake_case_name = plugin_name[:-len("_plugin")]
+
+        # 2. Derive other name formats from the snake_case name.
+        # e.g., from 'my_awesome_plugin'
+        
+        # kebab-case for project name suffix and entry point: 'my-awesome-plugin'
+        kebab_case_name = snake_case_name.replace('_', '-')
+
+        # PascalCase for the main class name: 'MyAwesomePlugin'
+        pascal_case_name = "".join(word.capitalize() for word in snake_case_name.split('_'))
+
+        # 3. Construct names for the project structure and configuration.
+        
+        # Project name for pyproject.toml: 'endstone-my-awesome-plugin'
+        project_name = f"endstone-{kebab_case_name}"
+        
+        # Entry point name for pyproject.toml: 'my-awesome-plugin'
+        entry_point_name = kebab_case_name
+        
+        # Python package name: 'endstone_my_awesome_plugin'
+        package_name = f"endstone_{snake_case_name}"
+        
+        # Main Python file name: 'my_awesome_plugin.py'
+        main_py_filename = f"{snake_case_name}_plugin.py"
+        
+        # Main Python class name: 'MyAwesomePlugin'
+        main_class_name = pascal_case_name
+
+        # pyproject.toml content
+        pyproject_toml_content = f"""[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "{project_name}"
+version = "0.1.0"
+description = "A new Endstone plugin: {pascal_case_name}"
+
+[project.entry-points."endstone"]
+{entry_point_name} = "{package_name}:{main_class_name}"
+"""
+
+        # __init__.py content
+        init_py_content = f"""from .{snake_case_name} import {main_class_name}
+
+__all__ = ["{main_class_name}"]
+"""
+
+        # main plugin file content
+        main_plugin_py_content = f"""from endstone.plugin import Plugin
+"""
+        if "events" in features:
+            main_plugin_py_content += "from endstone.event import event_handler, PlayerJoinEvent\n"
+
+        main_plugin_py_content += f"""
+
+class {main_class_name}(Plugin):
+    name = "{snake_case_name}"
+    version = "0.1.0"
+    api_version = "0.5"
     
     def on_enable(self) -> None:
-        """Called when the plugin is enabled."""
+        \"\"\"Called when the plugin is enabled.\"\"\"
         self.logger.info(f"{{self.name}} v{{self.version}} has been enabled!")
-'''
-        
+"""
+
         if "events" in features:
-            template += '''
-        # Register event handlers
-        self.register_events()
-    
-    def register_events(self):
-        """Register event handlers."""
-        from endstone.event import event_handler, PlayerJoinEvent
-        
-        @event_handler
-        def on_player_join(self, event: PlayerJoinEvent):
-            player = event.player
-            self.logger.info(f"Player {{player.name}} joined the server!")
+            main_plugin_py_content += '''
+        # Register event listeners
+        self.server.plugin_manager.register_events(self, self)
+
+    @event_handler(priority=EventPriority.NORMAL)
+    def on_player_join(self, event: PlayerJoinEvent):
+        player = event.player
+        self.logger.info(f"Player {{player.name}} joined the server!")
 '''
         
         if "commands" in features:
-            template += '''
+            main_plugin_py_content += '''
         # Register commands
-        self.register_commands()
-    
-    def register_commands(self):
-        """Register custom commands."""
-        from endstone.command import Command, CommandExecutor
-        
-        # Example command implementation
+        # See the 'command_creation' prompt for a guide on how to create commands.
         pass
 '''
-        
-        template += '''
-    
+
+        main_plugin_py_content += '''
+
     def on_disable(self) -> None:
-        """Called when the plugin is disabled."""
+        \"\"\"Called when the plugin is disabled.\"\"\"
         self.logger.info(f"{{self.name}} has been disabled!")
 '''
-        
-        return template
+
+        # Assemble the final markdown output
+        markdown_output = f"""# Plugin Template for '{pascal_case_name}'
+
+Based on your request, here is a complete guide to create the '{pascal_case_name}' plugin project, following Endstone's conventions.
+
+## 1. Project Structure
+
+Your project should have the following file structure. The project name `{project_name}` uses dashes, while the Python package name `{package_name}` uses underscores.
+
+```
+src/
+└── {package_name}/
+    ├── __init__.py
+    └── {main_py_filename}
+pyproject.toml
+```
+
+## 2. File Contents
+
+Here are the contents for each file. Create these files with the content below.
+
+### `pyproject.toml`
+
+This file configures your project, its dependencies, and the entry point for Endstone to discover your plugin.
+
+```toml
+{pyproject_toml_content}
+```
+
+### `src/{package_name}/__init__.py`
+
+This file makes your plugin class available when the package is imported and defines the public API of the package.
+
+```python
+{init_py_content}
+```
+
+### `src/{package_name}/{main_py_filename}`
+
+This is the core of your plugin, containing the main `Plugin` class and its logic.
+
+```python
+{main_plugin_py_content}
+```
+
+## Next Steps
+
+After creating these files, you can install your plugin in your Endstone server's environment (ideally a virtual environment). The plugin loader will automatically discover it through the entry point defined in `pyproject.toml`.
+"""
+
+        return markdown_output
     
     def _get_plugin_development_guide(self) -> str:
         """Get plugin development guide."""
@@ -649,9 +750,7 @@ class MyCommandExecutor(CommandExecutor):
         return True
 
 # Register the command
-command = Command("mycommand")
-command.executor = MyCommandExecutor()
-self.server.command_map.register(command)
+self.get_command("mycommand").executor = MyCommandExecutor()
 ```
 
 ## Command with Arguments
