@@ -49,14 +49,17 @@ class EndstoneMCPServer:
         if reference_path:
             self.reference_path = Path(reference_path)
         else:
-            # 首先尝试检查当前工作目录下的引用路径
-            cwd_ref = Path.cwd() / "reference"
+            # 优先寻找包内的reference目录
             package_ref = Path(__file__).parent / "reference"
+            # 然后检查当前工作目录下的引用路径
+            cwd_ref = Path.cwd() / "reference"
             
-            if cwd_ref.exists():
-                self.reference_path = cwd_ref
-            elif package_ref.exists():
+            if package_ref.exists():
                 self.reference_path = package_ref
+                logger.info(f"使用包内reference路径: {package_ref}")
+            elif cwd_ref.exists():
+                self.reference_path = cwd_ref
+                logger.info(f"使用当前目录reference路径: {cwd_ref}")
             else:
                 logger.warning("引用路径未找到，某些功能可能不可用")
                 self.reference_path = Path(__file__).parent / "reference"

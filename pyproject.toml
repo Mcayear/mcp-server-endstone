@@ -25,4 +25,11 @@ mcp-server-endstone = "mcp_server_endstone.cli:main"
 
 [project.urls]
 "Homepage" = "https://github.com/EndstoneMC/mcp-server-endstone"
-"Bug Tracker" = "https://github.com/EndstoneMC/mcp-server-endstone/issues" 
+"Bug Tracker" = "https://github.com/EndstoneMC/mcp-server-endstone/issues"
+
+[tool.setuptools]
+include-package-data = true
+package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+mcp_server_endstone = ["reference/**/*"] 

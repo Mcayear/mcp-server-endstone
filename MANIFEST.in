@@ -1,0 +1,2 @@
+recursive-include reference *
+recursive-include src/mcp_server_endstone/reference * 
