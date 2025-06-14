@@ -686,6 +686,21 @@ Homepage = "https://github.com/EndstoneMC/python-example-plugin"
 __all__ = ["{main_class_name}"]
 """
 
+        # plugin instance file content
+        plugin_instance_py_content = """from endstone.plugin import Plugin
+
+_plugin_instance: Plugin
+
+def set_plugin_instance(instance: Plugin):
+    \"\"\"setting global plugin instance\"\"\"
+    global _plugin_instance
+    _plugin_instance = instance
+
+def get_plugin_instance() -> Plugin:
+    \"\"\"getting global plugin instance\"\"\"
+    return _plugin_instance
+"""
+
         # event listener file content
         event_listener_py_content = f"""
 ### `src/{package_name}/event_listener.py`
@@ -727,16 +742,18 @@ class ExampleListener:
 
 use tool `read_tutorials("command")` to get more information.
 
-Note: This file is a Command file, which only allows the `on_command` method.
-
-Note: Do not use the `__init__` method, as only the `on_command` method will be called when the command is triggered.
-
-Note: food_command 对应的是 /food 命令，例如 example_command 对应 /example。
+Key points:
+1. Subclass CommandExecutor and implement only on_command (do not use __init__; it won’t be called).
+2. Call get_plugin_instance() to access the global plugin.
+3. For temporary data, attach attributes to the plugin (e.g. plugin.temp = {{}}); for persistent data, use the plugin.config API.
+4. muiltple commands example file: `food_command.py` -> `/food`, `example_command.py` -> `/example`
 
 ```python
 from endstone.command import Command, CommandSender, CommandExecutor
 from endstone import Player, ColorFormat
 from endstone.inventory import ItemStack
+
+from {package_name}.plugin_instance import get_plugin_instance
 
 class FoodCommandExecutor(CommandExecutor):
     def on_command(self, sender: CommandSender, command: Command, args: list[str]) -> bool:
@@ -747,13 +764,16 @@ class FoodCommandExecutor(CommandExecutor):
         return True
     
     def give_food(self, player: Player):
+        plugin = get_plugin_instance()
+        plugin.logger.info("give food to "+player.name)
         player.inventory.add_item(ItemStack('minecraft:apple', 1))
         player.send_message(ColorFormat.GREEN + "You received an apple!")
 ```
 """
 
         # main plugin file content
-        main_plugin_py_content = "from endstone.plugin import Plugin\n"
+        main_plugin_py_content = f"from endstone.plugin import Plugin\n"
+        main_plugin_py_content += f"from {package_name}.plugin_instance import set_plugin_instance\n"
 
         if "commands" in features:
             main_plugin_py_content += f"""from endstone.command import Command, CommandSender
@@ -802,6 +822,8 @@ class {main_class_name}(Plugin):
     def on_enable(self) -> None:
         \"\"\"Called when the plugin is enabled.\"\"\"
         self.logger.info(f"{{self.name}} v{{self.version}} has been enabled!")
+        # setting global plugin instance
+        set_plugin_instance(self)
 """
 
         if "commands" in features:
@@ -837,6 +859,7 @@ creating these files, use MIT LICENSE.
 
 ```
 src/{package_name}/{main_py_filename}
+src/{package_name}/plugin_instance.py
 src/{package_name}/__init__.py{"\nsrc/"+package_name+"/event_listener.py" if "events" in features else ""}{"\nsrc/"+package_name+"/python_command.py" if "commands" in features else ""}
 pyproject.toml
 README.md
@@ -869,6 +892,13 @@ This is the core of your plugin, containing the main `Plugin` class and its logi
 
 ```python
 {main_plugin_py_content}
+```
+
+### `src/{package_name}/plugin_instance.py`
+
+This file is used to set and get the global plugin instance.
+```python
+{plugin_instance_py_content}
 ```
 {event_listener_py_content if "events" in features else ""}{food_command_py_content if "commands" in features else ""}
 """
