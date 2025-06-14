@@ -12,6 +12,7 @@ import logging
 import sys
 import ast
 import re
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -41,8 +42,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("endstone-mcp")
 
 # Endstone reference path
-ENDSTONE_REF_PATH = Path(__file__).parent / "./reference/endstone"
+ENDSTONE_REF_PATH = Path(__file__).parent / "reference/endstone"
 ENDSTONE_PYI_PATH = Path(__file__).parent / "reference/endstone/_internal/endstone_python.pyi"
+TUTORIALS_PATH = Path(__file__).parent / "reference/tutorials"
 
 class EndstoneMCPServer:
     def __init__(self):
@@ -96,10 +98,30 @@ class EndstoneMCPServer:
                                 else:
                                     return_type = "ComplexType"
 
+                        params = []
+                        all_args = body_item.args.args + body_item.args.kwonlyargs
+                        for arg in all_args:
+                            if arg.arg == 'self':
+                                continue
+                            
+                            param_name = arg.arg
+                            param_type = "Any"
+                            if arg.annotation:
+                                try:
+                                    param_type = ast.unparse(arg.annotation)
+                                except AttributeError: # Fallback for older python
+                                    if isinstance(arg.annotation, ast.Name):
+                                        param_type = arg.annotation.id
+                                    else:
+                                        param_type = "ComplexType"
+                            
+                            params.append({"name": param_name, "type": param_type})
+
                         item_info = {
                             "name": func_name,
                             "doc": func_doc,
                             "return_type": return_type,
+                            "params": params,
                         }
 
                         if is_property:
@@ -275,6 +297,19 @@ class EndstoneMCPServer:
                             }
                         }
                     }
+                ),
+                Tool(
+                    name="read_tutorials",
+                    description="Read Endstone tutorials or list available tutorials",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Tutorial name to read or leave empty to list all tutorials"
+                            }
+                        }
+                    }
                 )
             ]
         
@@ -300,6 +335,9 @@ class EndstoneMCPServer:
                 elif name == "get_event_info":
                     result = await self._get_event_info(arguments.get("event_type"))
                     return result.content
+                elif name == "read_tutorials":
+                    result = await self._read_tutorials(arguments.get("query"))
+                    return result.content
                 else:
                     return [TextContent(type="text", text=f"Unknown tool: {name}")]
             except Exception as e:
@@ -309,45 +347,7 @@ class EndstoneMCPServer:
         @self.server.list_prompts()
         async def handle_list_prompts() -> List[Prompt]:
             """List available prompts."""
-            return [
-                Prompt(
-                    name="plugin_development",
-                    description="Get guidance on developing Endstone plugins"
-                ),
-                Prompt(
-                    name="event_handling",
-                    description="Learn about event handling in Endstone"
-                ),
-                Prompt(
-                    name="command_creation",
-                    description="Guide for creating custom commands"
-                )
-            ]
-        
-        @self.server.get_prompt()
-        async def handle_get_prompt(name: str, arguments: dict) -> GetPromptResult:
-            """Handle prompt requests."""
-            if name == "plugin_development":
-                content = self._get_plugin_development_guide()
-            elif name == "event_handling":
-                content = self._get_event_handling_guide()
-            elif name == "command_creation":
-                content = self._get_command_creation_guide()
-            else:
-                content = f"Unknown prompt: {name}"
-            
-            return GetPromptResult(
-                description=f"Endstone {name} guide",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": {
-                            "type": "text",
-                            "text": content
-                        }
-                    }
-                ]
-            )
+            return []  # No prompts available
     
     async def _get_module_info(self, module_name: str) -> CallToolResult:
         """Get information about a specific module."""
@@ -469,14 +469,17 @@ class EndstoneMCPServer:
             result += "## Methods\n"
             for method in class_info['methods']:
                 method_name = method['name']
-                # Skip if method name matches any property name
+                # Skip if method name matches a property name (likely a setter/deleter)
                 if any(prop['name'] == method_name for prop in class_info.get('properties', [])):
                     continue
-                    
+
                 method_type = method['return_type']
                 method_doc = method.get('doc') or 'No description available.'
                 
-                result += f"- **`{method_name}()`**"
+                params = method.get('params', [])
+                param_str = ', '.join([f"{p['name']}: {p['type']}" for p in params])
+
+                result += f"- **`{method_name}({param_str})`**"
                 if method_type:
                     result += f" -> `{method_type}`"
                 result += f"\n  - {method_doc}\n"
@@ -512,6 +515,85 @@ class EndstoneMCPServer:
         else:
             return CallToolResult(
                 content=[TextContent(type="text", text="Event module not found")]
+            )
+    async def _read_tutorials(self, query: Optional[str]) -> CallToolResult:
+        """Read tutorial content or list available tutorials."""
+        try:
+            if not TUTORIALS_PATH.exists():
+                return CallToolResult(
+                    content=[TextContent(type="text", text="Tutorial directory does not exist")]
+                )
+            
+            # Get all tutorial files
+            tutorial_files = list(TUTORIALS_PATH.glob('*.md'))
+        
+        
+            # List all available tutorials
+            available_tutorials = "## Available Tutorials\n\n"
+            for file_path in tutorial_files:
+                file_name = file_path.name
+                intro = ""
+                
+                # Read and extract the main title and introduction
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        first_paragraph = re.search(r'^#.*?\n\n(.*?)(\n\n|$)', content, re.DOTALL)
+                        if first_paragraph:
+                            intro = first_paragraph.group(1).replace('\n', ' ')
+                except Exception as e:
+                    intro = f"Failed to read introduction: {str(e)}"
+                
+                available_tutorials += f"{file_name}\n> {intro}\n\n"
+            
+            if not query:
+                return CallToolResult(
+                    content=[TextContent(type="text", text=available_tutorials)]
+                )
+        
+            # 查找匹配的教程文件
+            query_lower = query.lower()
+            best_match = None
+            best_score = 0
+            
+            for file_path in tutorial_files:
+                file_name = file_path.name.lower()
+                base_name = file_path.stem.lower()
+                
+                # 计算最佳匹配分数
+                if query_lower == base_name:
+                    score = 100  # 完全匹配文件名
+                elif query_lower in base_name:
+                    score = 75   # 部分匹配文件名
+                elif query_lower in file_name:
+                    score = 50   # 匹配扩展名
+                else:
+                    score = 0
+                    
+                if score > best_score:
+                    best_score = score
+                    best_match = file_path
+            
+            if best_match:
+                try:
+                    content = best_match.read_text(encoding='utf-8')
+                    return CallToolResult(
+                        content=[TextContent(type="text", text=content)]
+                    )
+                except Exception as e:
+                    return CallToolResult(
+                        content=[TextContent(type="text", text=f"Failed to read tutorial file: {str(e)}")]
+                    )
+            else:
+                return CallToolResult(
+                    content=[TextContent(
+                        type="text", 
+                        text=f"not tutorial found: '{query}'. \n\n{available_tutorials}"
+                    )]
+                )
+        except Exception as e:
+            return CallToolResult(
+                content=[TextContent(type="text", text=f"Error reading tutorials: {str(e)}")]
             )
     
     def _create_plugin_template(self, plugin_name: str, features: List[str]) -> str:
@@ -560,7 +642,17 @@ build-backend = "hatchling.build"
 [project]
 name = "{project_name}"
 version = "0.1.0"
+dependencies = []
+authors = [
+    {{ name = "Endstone Developers", email = "hello@endstone.dev" }},
+]
 description = "A new Endstone plugin: {pascal_case_name}"
+readme = "README.md"
+license = {{ file = "LICENSE" }}
+keywords = ["endstone", "plugin"]
+
+[project.urls]
+Homepage = "https://github.com/EndstoneMC/python-example-plugin"
 
 [project.entry-points."endstone"]
 {entry_point_name} = "{package_name}:{main_class_name}"
@@ -572,41 +664,137 @@ description = "A new Endstone plugin: {pascal_case_name}"
 __all__ = ["{main_class_name}"]
 """
 
-        # main plugin file content
-        main_plugin_py_content = f"""from endstone.plugin import Plugin
+        # event listener file content
+
+        event_listener_py_content = f"""
+### `src/{package_name}/event_listener.py`
+
+use tool `read_tutorials("event-listener")` to get more information.
+
+Note: This file is a Listener file, which only allows the `__init__` method and methods registered with the `@event_handler` annotation.
 """
+        event_listener_py_content += """
+from endstone import ColorFormat
+from endstone.event import event_handler, EventPriority, PlayerJoinEvent, PlayerQuitEvent
+from endstone.plugin import Plugin
+
+class ExampleListener:
+    def __init__(self, plugin: Plugin):
+        self._plugin = plugin
+
+    @event_handler(priority=EventPriority.NORMAL)
+    def on_player_join(self, event: PlayerJoinEvent):
+        player = event.player
+        self._plugin.logger.info(
+            ColorFormat.YELLOW + f"{player.name}[/{player.address}] joined the game with UUID {player.unique_id}"
+        )
+
+        # example of explicitly removing one's permission of using /me command
+        player.add_attachment(self._plugin, "minecraft.command.me", False)
+        player.update_commands()  # don't forget to resend the commands
+
+    @event_handler
+    def on_player_quit(self, event: PlayerQuitEvent):
+        player = event.player
+        self._plugin.logger.info(ColorFormat.YELLOW + f"{player.name}[/{player.address}] left the game.")
+
+"""
+
+        # food command file content
+        food_command_py_content = f"""
+### `src/{package_name}/food_command.py`
+
+use tool `read_tutorials("command")` to get more information.
+
+Note: This file is a Command file, which only allows the `on_command` method.
+
+Note: Do not use the `__init__` method, as only the `on_command` method will be called when the command is triggered.
+
+Note: food_command 对应的是 /food 命令，例如 example_command 对应 /example。
+
+```python
+from endstone.command import Command, CommandSender, CommandExecutor
+from endstone import Player, ColorFormat
+from endstone.inventory import ItemStack
+
+class FoodCommandExecutor(CommandExecutor):
+    def on_command(self, sender: CommandSender, command: Command, args: list[str]) -> bool:
+        if not isinstance(sender, Player):
+            sender.send_error_message("此命令只能由玩家执行。")
+            return False
+        self.give_food(sender)
+        return True
+    
+    def give_food(self, player: Player):
+        player.inventory.add_item(ItemStack('minecraft:apple', 1))
+        player.send_message(ColorFormat.GREEN + "You received an apple!")
+```
+"""
+
+        # main plugin file content
+        main_plugin_py_content = "from endstone.plugin import Plugin\n"
+
+        if "commands" in features:
+            main_plugin_py_content += f"""from endstone.command import Command, CommandSender
+from {package_name}.food_command import Command, CommandExecutor
+"""
+
         if "events" in features:
-            main_plugin_py_content += "from endstone.event import event_handler, PlayerJoinEvent\n"
+            main_plugin_py_content += f"""from {package_name}.example_listener import ExampleListener
+"""
 
         main_plugin_py_content += f"""
-
 class {main_class_name}(Plugin):
     name = "{snake_case_name}"
     version = "0.1.0"
     api_version = "0.5"
-    
+    load = "POSTWORLD"
+"""
+
+        if "commands" in features:
+            main_plugin_py_content += """
+    commands = {
+        "food": {
+            "description": "Give a apple to yourself",
+            "usages": ["/food"],
+            "aliases": ["eattt"],
+            "permissions": ["{snake_case_name}.command.food"]
+        }
+    }
+
+    permissions = {
+        "{snake_case_name}.command": {
+            "description": "Allow users to use all commands provided by this plugin.",
+            "default": True,
+            "children": {
+                "{snake_case_name}.command.food": True
+            }
+        },
+        "{snake_case_name}.command.food": {
+            "description": "Allow users to use the /food command.",
+            "default": True  # values: "op" | True
+        }
+    }
+""".replace("{snake_case_name}", snake_case_name)
+        
+        main_plugin_py_content += f"""
     def on_enable(self) -> None:
         \"\"\"Called when the plugin is enabled.\"\"\"
         self.logger.info(f"{{self.name}} v{{self.version}} has been enabled!")
 """
 
-        if "events" in features:
-            main_plugin_py_content += '''
-        # Register event listeners
-        self.server.plugin_manager.register_events(self, self)
-
-    @event_handler(priority=EventPriority.NORMAL)
-    def on_player_join(self, event: PlayerJoinEvent):
-        player = event.player
-        self.logger.info(f"Player {{player.name}} joined the server!")
-'''
-        
         if "commands" in features:
             main_plugin_py_content += '''
         # Register commands
-        # See the 'command_creation' prompt for a guide on how to create commands.
-        pass
+        self.get_command("food").executor = FoodCommandExecutor()
 '''
+
+        if "events" in features:
+            main_plugin_py_content += '''
+        # Register event listeners
+        self.register_events(ExampleListener(self))
+'''
+        
 
         main_plugin_py_content += '''
 
@@ -624,12 +812,14 @@ Based on your request, here is a complete guide to create the '{pascal_case_name
 
 Your project should have the following file structure. The project name `{project_name}` uses dashes, while the Python package name `{package_name}` uses underscores.
 
+creating these files, use MIT LICENSE.
+
 ```
-src/
-└── {package_name}/
-    ├── __init__.py
-    └── {main_py_filename}
+src/{package_name}/{main_py_filename}
+src/{package_name}/__init__.py{"\nsrc/"+package_name+"/event_listener.py" if "events" in features else ""}{"\nsrc/"+package_name+"/python_command.py" if "commands" in features else ""}
 pyproject.toml
+README.md
+LICENSE
 ```
 
 ## 2. File Contents
@@ -659,114 +849,10 @@ This is the core of your plugin, containing the main `Plugin` class and its logi
 ```python
 {main_plugin_py_content}
 ```
-
-## Next Steps
-
-After creating these files, you can install your plugin in your Endstone server's environment (ideally a virtual environment). The plugin loader will automatically discover it through the entry point defined in `pyproject.toml`.
+{event_listener_py_content if "events" in features else ""}{food_command_py_content if "commands" in features else ""}
 """
 
         return markdown_output
-    
-    def _get_plugin_development_guide(self) -> str:
-        """Get plugin development guide."""
-        return """
-# Endstone Plugin Development Guide
-
-## Basic Plugin Structure
-
-1. **Inherit from Plugin class**
-   ```python
-   from endstone.plugin import Plugin
-   
-   class MyPlugin(Plugin):
-       pass
-   ```
-
-2. **Implement lifecycle methods**
-   - `on_enable()`: Called when plugin is enabled
-   - `on_disable()`: Called when plugin is disabled
-
-3. **Plugin metadata**
-   - Set class attributes: name, version, api_version
-   - Or use plugin.toml configuration file
-
-## Key Components
-
-- **Events**: Handle server events (player join, block break, etc.)
-- **Commands**: Create custom commands
-- **Permissions**: Manage player permissions
-- **Scheduler**: Schedule tasks
-- **Configuration**: Store plugin settings
-"""
-    
-    def _get_event_handling_guide(self) -> str:
-        """Get event handling guide."""
-        return """
-# Event Handling in Endstone
-
-## Basic Event Handler
-
-```python
-from endstone.event import event_handler, PlayerJoinEvent
-
-@event_handler
-def on_player_join(self, event: PlayerJoinEvent):
-    player = event.player
-    self.logger.info(f"Welcome {player.name}!")
-```
-
-## Event Priorities
-
-- `EventPriority.LOWEST`
-- `EventPriority.LOW`
-- `EventPriority.NORMAL` (default)
-- `EventPriority.HIGH`
-- `EventPriority.HIGHEST`
-
-## Cancellable Events
-
-Some events can be cancelled:
-
-```python
-@event_handler
-def on_block_break(self, event: BlockBreakEvent):
-    if some_condition:
-        event.cancelled = True
-```
-"""
-    
-    def _get_command_creation_guide(self) -> str:
-        """Get command creation guide."""
-        return """
-# Creating Commands in Endstone
-
-## Basic Command
-
-```python
-from endstone.command import Command, CommandExecutor
-
-class MyCommandExecutor(CommandExecutor):
-    def on_command(self, sender, command, args):
-        sender.send_message("Hello from custom command!")
-        return True
-
-# Register the command
-self.get_command("mycommand").executor = MyCommandExecutor()
-```
-
-## Command with Arguments
-
-```python
-def on_command(self, sender, command, args):
-    if len(args) == 0:
-        sender.send_message("Usage: /mycommand <argument>")
-        return False
-    
-    arg = args[0]
-    sender.send_message(f"You said: {arg}")
-    return True
-```
-"""
     
     async def run(self):
         """Run the MCP server."""
