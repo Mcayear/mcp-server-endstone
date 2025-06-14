@@ -8,27 +8,25 @@
 - **代码搜索**: 在所有 Endstone 模块中搜索类、函数和常量
 - **插件模板生成**: 根据需求生成基础插件模板
 - **事件处理指导**: 提供事件处理的详细信息和示例
-- **开发指南**: 内置插件开发、事件处理和命令创建指南
+- **开发教程**: 内置插件开发、事件处理和命令创建指南
 
-## 安装
+## 安装或启动
 
-1. 安装依赖:
-```bash
-pip install -r requirements.txt
-```
-
-2. 确保 Endstone 参考文件位于正确路径:
-```
-path/to/reference/endstone/
-path/to/reference/tutorials/
-```
-
-## 使用方法
-
-### 作为独立服务器运行
+### 用 uvx
 
 ```bash
-python endstone_mcp_server.py
+uvx mcp-server-endstone
+```
+
+### 用源码
+
+```bash
+git clone https://github.com/Mcayear/mcp-server-endstone
+cd mcp-server-endstone
+pip install -e .
+
+# 安装后启动
+mcp-server-endstone
 ```
 
 ### 单元测试
@@ -36,17 +34,19 @@ python endstone_mcp_server.py
 python -m tests.test_server
 ```
 
-### 从源码安装
-```bash
-pip install -e .
+## 使用方法
 
-# 安装后启动
-mcp-server-endstone
+### 直接启动服务器
+
+```bash
+mcp-server-endstone [--reference 引用文件路径]
 ```
 
 ### 与 MCP 客户端集成
 
 在你的 MCP 客户端配置中添加:
+
+> 示例可用直接用于：cursor、trae
 
 ```json
 {
@@ -100,16 +100,17 @@ mcp-server-endstone
 ```
 
 ### 4. generate_plugin_template
+生成基础插件模板，包含指定功能
 
 **参数:**
-- `plugin_name`: 插件名称
+- `plugin_name`: 插件名称 (必须以 '_plugin' 结尾)
 - `features`: 功能列表 (可选: 'commands', 'events', 'permissions')
 
 **示例:**
 ```
 工具: generate_plugin_template
 参数: {
-  "plugin_name": "MyAwesome",
+  "plugin_name": "example_plugin",
   "features": ["events", "commands"]
 }
 ```
@@ -126,16 +127,17 @@ mcp-server-endstone
 参数: {"event_type": "PlayerJoinEvent"}
 ```
 
-## 可用提示
+### 6. read_tutorials
+获取教程内容。如未指定教程名称，则列出所有可用教程。
 
-### 1. plugin_development
-获取插件开发指南
+**参数:**
+- `query`: 教程名称 (可选)
 
-### 2. event_handling
-学习事件处理机制
-
-### 3. command_creation
-了解自定义命令创建
+**示例:**
+```
+工具: read_tutorials
+参数: {"query": "register-commands"}
+```
 
 ## 支持的 Endstone 模块
 
@@ -172,10 +174,6 @@ class MyPlugin(Plugin):
     version = "1.0.0"
     api_version = "0.5"
     
-    def __init__(self):
-        super().__init__()
-        self.logger: Logger = self.get_logger()
-    
     def on_enable(self) -> None:
         self.logger.info(f"{self.name} v{self.version} enabled!")
     
@@ -195,11 +193,33 @@ def on_player_join(self, event: PlayerJoinEvent):
     player.send_message("Welcome to the server!")
 ```
 
+## 项目结构
+
+```
+mcp-server-endstone/
+├── reference/         # 引用所需资源
+│   ├── endstone/
+│   └── tutorials/
+├── src/
+│   └── mcp_server_endstone/
+│       ├── __init__.py
+│       ├── server.py  # 核心服务器逻辑
+│       ├── cli.py     # 命令行入口
+│       └── reference/ # 引用文件
+├── tests/
+│   ├── __init__.py
+│   └── test_server.py
+├── pyproject.toml
+└── README.md
+```
+
 ## 故障排除
 
-1. **模块未找到**: 确保 Endstone 参考文件路径正确
-2. **权限错误**: 检查文件读取权限
-3. **依赖问题**: 确保所有依赖已正确安装
+1. **引用文件路径问题**: 服务器首先尝试从包内的reference目录加载引用文件，然后尝试从当前工作目录加载。如果两者都不存在，某些功能可能不可用。使用`--reference`参数指定引用文件路径。
+
+2. **错误调试**: 服务器的日志级别为INFO，可以查看日志来诊断问题。
+
+3. **依赖问题**: 确保所有依赖已正确安装: `mcp>=0.1.0`
 
 ## 贡献
 

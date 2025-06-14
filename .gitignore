@@ -164,7 +164,10 @@ cython_debug/
 
 # Project specific
 # Ignore reference folder as requested
-reference/
+reference/python-example-plugin/
+reference/tutorials/screenshots/
+reference/endstone/_internal/bootstrap/
+reference/endstone/_internal/fonts/
 
 # MCP server logs
 *.log
