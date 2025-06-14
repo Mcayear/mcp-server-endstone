@@ -41,16 +41,34 @@ from mcp.types import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("endstone-mcp")
 
-# Endstone reference path
-ENDSTONE_REF_PATH = Path(__file__).parent / "reference/endstone"
-ENDSTONE_PYI_PATH = Path(__file__).parent / "reference/endstone/_internal/endstone_python.pyi"
-TUTORIALS_PATH = Path(__file__).parent / "reference/tutorials"
-
 class EndstoneMCPServer:
-    def __init__(self):
+    def __init__(self, reference_path=None):
         self.server = Server("endstone-mcp")
+        
+        # 确定引用路径
+        if reference_path:
+            self.reference_path = Path(reference_path)
+        else:
+            # 首先尝试检查当前工作目录下的引用路径
+            cwd_ref = Path.cwd() / "reference"
+            package_ref = Path(__file__).parent / "reference"
+            
+            if cwd_ref.exists():
+                self.reference_path = cwd_ref
+            elif package_ref.exists():
+                self.reference_path = package_ref
+            else:
+                logger.warning("引用路径未找到，某些功能可能不可用")
+                self.reference_path = Path(__file__).parent / "reference"
+        
+        # 定义引用路径
+        self.ENDSTONE_REF_PATH = self.reference_path / "endstone"
+        self.ENDSTONE_PYI_PATH = self.reference_path / "endstone/_internal/endstone_python.pyi"
+        self.TUTORIALS_PATH = self.reference_path / "tutorials"
+        
+        # 加载模块和定义
         self.endstone_modules = self._load_endstone_modules()
-        self.pyi_definitions = self._load_pyi_definitions(ENDSTONE_PYI_PATH)
+        self.pyi_definitions = self._load_pyi_definitions(self.ENDSTONE_PYI_PATH)
         self._setup_handlers()
     
     def _load_pyi_definitions(self, file_path: Path) -> Dict[str, Any]:
@@ -164,7 +182,7 @@ class EndstoneMCPServer:
         }
         
         for file_name, module_name in core_modules.items():
-            file_path = ENDSTONE_REF_PATH / file_name
+            file_path = self.ENDSTONE_REF_PATH / file_name
             if file_path.exists():
                 try:
                     content = file_path.read_text(encoding='utf-8')
@@ -516,16 +534,17 @@ class EndstoneMCPServer:
             return CallToolResult(
                 content=[TextContent(type="text", text="Event module not found")]
             )
+
     async def _read_tutorials(self, query: Optional[str]) -> CallToolResult:
         """Read tutorial content or list available tutorials."""
         try:
-            if not TUTORIALS_PATH.exists():
+            if not self.TUTORIALS_PATH.exists():
                 return CallToolResult(
                     content=[TextContent(type="text", text="Tutorial directory does not exist")]
                 )
             
             # Get all tutorial files
-            tutorial_files = list(TUTORIALS_PATH.glob('*.md'))
+            tutorial_files = list(self.TUTORIALS_PATH.glob('*.md'))
         
         
             # List all available tutorials
@@ -632,7 +651,7 @@ class EndstoneMCPServer:
         main_py_filename = f"{snake_case_name}_plugin.py"
         
         # Main Python class name: 'MyAwesomePlugin'
-        main_class_name = pascal_case_name
+        main_class_name = f"{pascal_case_name}Plugin"
 
         # pyproject.toml content
         pyproject_toml_content = f"""[build-system]
@@ -659,13 +678,12 @@ Homepage = "https://github.com/EndstoneMC/python-example-plugin"
 """
 
         # __init__.py content
-        init_py_content = f"""from .{snake_case_name} import {main_class_name}
+        init_py_content = f"""from .{snake_case_name}_plugin import {main_class_name}
 
 __all__ = ["{main_class_name}"]
 """
 
         # event listener file content
-
         event_listener_py_content = f"""
 ### `src/{package_name}/event_listener.py`
 
@@ -736,7 +754,7 @@ class FoodCommandExecutor(CommandExecutor):
 
         if "commands" in features:
             main_plugin_py_content += f"""from endstone.command import Command, CommandSender
-from {package_name}.food_command import Command, CommandExecutor
+from {package_name}.food_command import FoodCommandExecutor
 """
 
         if "events" in features:
@@ -870,10 +888,10 @@ This is the core of your plugin, containing the main `Plugin` class and its logi
                 ),
             )
 
-def main():
+async def main():
     """Main entry point."""
     server = EndstoneMCPServer()
-    asyncio.run(server.run())
+    await server.run()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main()) 

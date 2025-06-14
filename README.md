@@ -20,6 +20,7 @@ pip install -r requirements.txt
 2. 确保 Endstone 参考文件位于正确路径:
 ```
 path/to/reference/endstone/
+path/to/reference/tutorials/
 ```
 
 ## 使用方法
@@ -30,6 +31,19 @@ path/to/reference/endstone/
 python endstone_mcp_server.py
 ```
 
+### 单元测试
+```bash
+python -m tests.test_server
+```
+
+### 从源码安装
+```bash
+pip install -e .
+
+# 安装后启动
+mcp-server-endstone
+```
+
 ### 与 MCP 客户端集成
 
 在你的 MCP 客户端配置中添加:
@@ -38,8 +52,10 @@ python endstone_mcp_server.py
 {
   "mcpServers": {
     "endstone": {
-      "command": "python",
-      "args": ["path/to/endstone_mcp_server.py"]
+      "command": "uvx",
+      "args": [
+        "mcp-server-endstone"
+      ]
     }
   }
 }
