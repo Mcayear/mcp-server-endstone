@@ -23,10 +23,6 @@ from mcp.server.stdio import stdio_server
 from mcp.types import (
     CallToolRequest,
     CallToolResult,
-    GetPromptRequest,
-    GetPromptResult,
-    ListPromptsRequest,
-    ListPromptsResult,
     ListResourcesRequest,
     ListResourcesResult,
     ListToolsRequest,

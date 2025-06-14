@@ -6,7 +6,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
-  <img src="https://img.shields.io/badge/version-0.1.2-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.1.4-blue" alt="Version">
   <img src="https://img.shields.io/badge/Python-%3E=3.8-blue?logo=python" alt="Python version">
 </p>
 
