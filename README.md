@@ -1,52 +1,68 @@
+<p align="right">
+<img src="https://flagicons.lipis.dev/flags/4x3/gb.svg" width="30" height="24">
+</p>
+
 # Endstone MCP Server
 
-一个为 EndstoneMC 开发提供支持的 Model Context Protocol (MCP) 服务器。
+<p align="center">
+  <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
+  <img src="https://img.shields.io/badge/version-0.1.2-blue" alt="Version">
+  <img src="https://img.shields.io/badge/Python-%3E=3.8-blue?logo=python" alt="Python version">
+</p>
 
-## 功能特性
+A Model Context Protocol (MCP) server designed to support EndstoneMC development.
 
-- **模块信息查询**: 获取 Endstone 模块的详细信息和导出内容
-- **代码搜索**: 在所有 Endstone 模块中搜索类、函数和常量
-- **插件模板生成**: 根据需求生成基础插件模板
-- **事件处理指导**: 提供事件处理的详细信息和示例
-- **开发教程**: 内置插件开发、事件处理和命令创建指南
+<p align="center">
+<a href="README_CN.md">
+<img src="https://flagicons.lipis.dev/flags/4x3/cn.svg" width="30" height="24">
+</a>
+</p>
 
-## 安装或启动
+## Features
 
-### 用 uvx
+- **Module Information Query**: Retrieve detailed information and exports for Endstone modules.
+- **Code Search**: Search for classes, functions, and constants across all Endstone modules.
+- **Plugin Template Generation**: Generate basic plugin templates based on specified requirements.
+- **Event Handling Guidance**: Provide detailed information and examples for event handling.
+- **Development Tutorials**: Built-in guides for plugin development, event handling, and command creation.
+
+## Installation or Startup
+
+### Using uvx
 
 ```bash
 uvx mcp-server-endstone
 ```
 
-### 用源码
+### From Source
 
 ```bash
 git clone https://github.com/Mcayear/mcp-server-endstone
 cd mcp-server-endstone
 pip install -e .
 
-# 安装后启动
+# Start after installation
 mcp-server-endstone
 ```
 
-### 单元测试
+### Unit Tests
 ```bash
 python -m tests.test_server
 ```
 
-## 使用方法
+## Usage
 
-### 直接启动服务器
+### Start the Server Directly
 
 ```bash
-mcp-server-endstone [--reference 引用文件路径]
+mcp-server-endstone [--reference <path_to_reference_files>]
 ```
 
-### 与 MCP 客户端集成
+### Integrate with an MCP Client
 
-在你的 MCP 客户端配置中添加:
+Add the following to your MCP client configuration:
 
-> 示例可用直接用于：cursor、trae
+> Example (compatible with clients like cursor, trae):
 
 ```json
 {
@@ -61,109 +77,109 @@ mcp-server-endstone [--reference 引用文件路径]
 }
 ```
 
-## 可用工具
+## Available Tools
 
 ### 1. get_module_info
-获取特定 Endstone 模块的信息
+Get information about a specific Endstone module.
 
-**参数:**
-- `module_name`: 模块名称 (例如: 'endstone.event', 'endstone.plugin')
+**Parameters:**
+- `module_name`: The name of the module (e.g., 'endstone.event', 'endstone.plugin').
 
-**示例:**
+**Example:**
 ```
-工具: get_module_info
-参数: {"module_name": "endstone.event"}
+Tool: get_module_info
+Parameters: {"module_name": "endstone.event"}
 ```
 
 ### 2. search_exports
-在所有模块中搜索特定的导出项
+Search for specific exports across all modules.
 
-**参数:**
-- `query`: 搜索词 (类名、函数名等)
+**Parameters:**
+- `query`: The search term (class name, function name, etc.).
 
-**示例:**
+**Example:**
 ```
-工具: search_exports
-参数: {"query": "Player"}
+Tool: search_exports
+Parameters: {"query": "Player"}
 ```
 
 ### 3. get_symbol_info
-获取 Endstone 中特定符号（如类、事件）的详细定义，包括其文档、属性和方法。
+Get the detailed definition of a specific symbol (like a class or event) in Endstone, including its documentation, attributes, and methods.
 
-**参数:**
-- `symbol_name`: 符号名称 (例如: 'PlayerInteractEvent', 'Plugin')
+**Parameters:**
+- `symbol_name`: The name of the symbol (e.g., 'PlayerInteractEvent', 'Plugin').
 
-**示例:**
+**Example:**
 ```
-工具: get_symbol_info
-参数: {"symbol_name": "PlayerInteractEvent"}
+Tool: get_symbol_info
+Parameters: {"symbol_name": "PlayerInteractEvent"}
 ```
 
 ### 4. generate_plugin_template
-生成基础插件模板，包含指定功能
+Generate a basic plugin template with specified features.
 
-**参数:**
-- `plugin_name`: 插件名称 (必须以 '_plugin' 结尾)
-- `features`: 功能列表 (可选: 'commands', 'events', 'permissions')
+**Parameters:**
+- `plugin_name`: The name of the plugin (must end with '_plugin').
+- `features`: A list of features to include (optional: 'commands', 'events', 'permissions').
 
-**示例:**
+**Example:**
 ```
-工具: generate_plugin_template
-参数: {
+Tool: generate_plugin_template
+Parameters: {
   "plugin_name": "example_plugin",
   "features": ["events", "commands"]
 }
 ```
 
 ### 5. get_event_info
-获取事件相关信息。如果提供了 `event_type`，则返回该事件的详细定义（属性、文档）和用法示例。否则，列出所有可用事件。
+Get information about events. If `event_type` is provided, it returns the detailed definition (attributes, docs) and usage examples for that event. Otherwise, it lists all available events.
 
-**参数:**
-- `event_type`: 特定事件类型 (可选)
+**Parameters:**
+- `event_type`: A specific event type (optional).
 
-**示例:**
+**Example:**
 ```
-工具: get_event_info
-参数: {"event_type": "PlayerJoinEvent"}
+Tool: get_event_info
+Parameters: {"event_type": "PlayerJoinEvent"}
 ```
 
 ### 6. read_tutorials
-获取教程内容。如未指定教程名称，则列出所有可用教程。
+Get content for a tutorial. If no tutorial name is specified, it lists all available tutorials.
 
-**参数:**
-- `query`: 教程名称 (可选)
+**Parameters:**
+- `query`: The name of the tutorial (optional).
 
-**示例:**
+**Example:**
 ```
-工具: read_tutorials
-参数: {"query": "register-commands"}
+Tool: read_tutorials
+Parameters: {"query": "register-commands"}
 ```
 
-## 支持的 Endstone 模块
+## Supported Endstone Modules
 
-- `endstone` - 核心模块
-- `endstone.actor` - 实体相关
-- `endstone.ban` - 封禁系统
-- `endstone.block` - 方块操作
-- `endstone.boss` - Boss栏
-- `endstone.command` - 命令系统
-- `endstone.damage` - 伤害系统
-- `endstone.enchantments` - 附魔
-- `endstone.event` - 事件系统
-- `endstone.form` - 表单UI
-- `endstone.inventory` - 物品栏
-- `endstone.lang` - 语言本地化
-- `endstone.level` - 世界/维度
-- `endstone.map` - 地图
-- `endstone.permissions` - 权限系统
-- `endstone.plugin` - 插件基础
-- `endstone.scheduler` - 任务调度
-- `endstone.scoreboard` - 计分板
-- `endstone.util` - 工具类
+- `endstone` - Core module
+- `endstone.actor` - Actor-related
+- `endstone.ban` - Ban system
+- `endstone.block` - Block operations
+- `endstone.boss` - Boss bar
+- `endstone.command` - Command system
+- `endstone.damage` - Damage system
+- `endstone.enchantments` - Enchantments
+- `endstone.event` - Event system
+- `endstone.form` - Form UI
+- `endstone.inventory` - Inventory
+- `endstone.lang` - Language localization
+- `endstone.level` - World/Dimension
+- `endstone.map` - Map
+- `endstone.permissions` - Permission system
+- `endstone.plugin` - Plugin basics
+- `endstone.scheduler` - Task scheduler
+- `endstone.scoreboard` - Scoreboard
+- `endstone.util` - Utilities
 
-## 开发示例
+## Development Examples
 
-### 基础插件结构
+### Basic Plugin Structure
 
 ```python
 from endstone.plugin import Plugin
@@ -181,7 +197,7 @@ class MyPlugin(Plugin):
         self.logger.info(f"{self.name} disabled!")
 ```
 
-### 事件处理
+### Event Handling
 
 ```python
 from endstone.event import event_handler, PlayerJoinEvent
@@ -193,19 +209,19 @@ def on_player_join(self, event: PlayerJoinEvent):
     player.send_message("Welcome to the server!")
 ```
 
-## 项目结构
+## Project Structure
 
 ```
 mcp-server-endstone/
-├── reference/         # 引用所需资源
+├── reference/         # Required reference resources
 │   ├── endstone/
 │   └── tutorials/
 ├── src/
 │   └── mcp_server_endstone/
 │       ├── __init__.py
-│       ├── server.py  # 核心服务器逻辑
-│       ├── cli.py     # 命令行入口
-│       └── reference/ # 引用文件
+│       ├── server.py  # Core server logic
+│       ├── cli.py     # Command-line entry point
+│       └── reference/ # Reference files
 ├── tests/
 │   ├── __init__.py
 │   └── test_server.py
@@ -213,18 +229,22 @@ mcp-server-endstone/
 └── README.md
 ```
 
-## 故障排除
+## Troubleshooting
 
-1. **引用文件路径问题**: 服务器首先尝试从包内的reference目录加载引用文件，然后尝试从当前工作目录加载。如果两者都不存在，某些功能可能不可用。使用`--reference`参数指定引用文件路径。
+1.  **Reference File Path Issues**: The server first attempts to load reference files from the `reference` directory within the package, then from the current working directory. If neither exists, some features may be unavailable. Use the `--reference` argument to specify the path.
 
-2. **错误调试**: 服务器的日志级别为INFO，可以查看日志来诊断问题。
+2.  **Debugging Errors**: The server's log level is set to INFO. Check the logs to diagnose problems.
 
-3. **依赖问题**: 确保所有依赖已正确安装: `mcp>=0.1.0`
+3.  **Dependency Issues**: Ensure all dependencies are correctly installed: `mcp>=0.1.0`
 
-## 贡献
+## Contributing
 
-欢迎提交 Issue 和 Pull Request 来改进这个 MCP 服务器。
+Contributions are welcome! Please feel free to submit Issues and Pull Requests to improve this MCP server.
 
-## 许可证
+## Credits
+
+[EndstoneMC](https://github.com/EndstoneMC/endstone) - The `reference` content is based on `endstone/docs/reference` and `endstone/docs/tutorials`.
+
+## License
 
 MIT License
